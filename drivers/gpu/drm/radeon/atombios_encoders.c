@@ -1624,8 +1624,9 @@ radeon_atom_encoder_dpms_avivo(struct drm_encoder *encoder, int mode)
 		} else
 			atom_execute_table(rdev->mode_info.atom_context, index, (uint32_t *)&args);
 		if (radeon_encoder->devices & (ATOM_DEVICE_LCD_SUPPORT)) {
-			args.ucAction = ATOM_LCD_BLON;
-			atom_execute_table(rdev->mode_info.atom_context, index, (uint32_t *)&args);
+			struct radeon_encoder_atom_dig *dig = radeon_encoder->enc_priv;
+
+			atombios_set_backlight_level(radeon_encoder, dig->backlight_level);
 		}
 		break;
 	case DRM_MODE_DPMS_STANDBY:
@@ -1706,8 +1707,7 @@ radeon_atom_encoder_dpms_dig(struct drm_encoder *encoder, int mode)
 				atombios_dig_encoder_setup(encoder, ATOM_ENCODER_CMD_DP_VIDEO_ON, 0);
 		}
 		if (radeon_encoder->devices & (ATOM_DEVICE_LCD_SUPPORT))
-			atombios_dig_transmitter_setup(encoder,
-						       ATOM_TRANSMITTER_ACTION_LCD_BLON, 0, 0);
+			atombios_set_backlight_level(radeon_encoder, dig->backlight_level);
 		if (ext_encoder)
 			atombios_external_encoder_setup(encoder, ext_encoder, ATOM_ENABLE);
 		break;
@@ -1761,17 +1761,15 @@ radeon_atom_encoder_dpms(struct drm_encoder *encoder, int mode)
 	struct drm_device *dev = encoder->dev;
 	struct radeon_device *rdev = dev->dev_private;
 	struct radeon_encoder *radeon_encoder = to_radeon_encoder(encoder);
-	struct drm_connector *connector = radeon_get_connector_for_encoder(encoder);
 	int encoder_mode = atombios_get_encoder_mode(encoder);
 
 	DRM_DEBUG_KMS("encoder dpms %d to mode %d, devices %08x, active_devices %08x\n",
 		  radeon_encoder->encoder_id, mode, radeon_encoder->devices,
 		  radeon_encoder->active_device);
 
-	if (connector && (radeon_audio != 0) &&
+	if ((radeon_audio != 0) &&
 	    ((encoder_mode == ATOM_ENCODER_MODE_HDMI) ||
-	     (ENCODER_MODE_IS_DP(encoder_mode) &&
-	      drm_detect_monitor_audio(radeon_connector_edid(connector)))))
+	     ENCODER_MODE_IS_DP(encoder_mode)))
 		radeon_audio_dpms(encoder, mode);
 
 	switch (radeon_encoder->encoder_id) {
@@ -2301,8 +2299,7 @@ radeon_atom_encoder_mode_set(struct drm_encoder *encoder,
 	encoder_mode = atombios_get_encoder_mode(encoder);
 	if (connector && (radeon_audio != 0) &&
 	    ((encoder_mode == ATOM_ENCODER_MODE_HDMI) ||
-	     (ENCODER_MODE_IS_DP(encoder_mode) &&
-	      drm_detect_monitor_audio(radeon_connector_edid(connector)))))
+	     ENCODER_MODE_IS_DP(encoder_mode)))
 		radeon_audio_mode_set(encoder, adjusted_mode);
 }
 

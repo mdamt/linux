@@ -391,6 +391,12 @@ static int tse_rx(struct altera_tse_private *priv, int limit)
 				   "RCV pktstatus %08X pktlength %08X\n",
 				   pktstatus, pktlength);
 
+		/* DMA trasfer from TSE starts with 2 aditional bytes for
+		 * IP payload alignment. Status returned by get_rx_status()
+		 * contains DMA transfer length. Packet is 2 bytes shorter.
+		 */
+		pktlength -= 2;
+
 		count++;
 		next_entry = (++priv->rx_cons) % priv->rx_ring_size;
 
@@ -505,8 +511,7 @@ static int tse_poll(struct napi_struct *napi, int budget)
 
 	if (rxcomplete < budget) {
 
-		napi_gro_flush(napi, false);
-		__napi_complete(napi);
+		napi_complete(napi);
 
 		netdev_dbg(priv->dev,
 			   "NAPI Complete, did %d packets with budget %d\n",
@@ -1512,6 +1517,7 @@ static int altera_tse_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->tx_lock);
 	spin_lock_init(&priv->rxdma_irq_lock);
 
+	netif_carrier_off(ndev);
 	ret = register_netdev(ndev);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register TSE net device\n");
